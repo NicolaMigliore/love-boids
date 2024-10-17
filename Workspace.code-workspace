@@ -20,5 +20,12 @@
 			"name": "Root",
 			"path": ".",
 		}
-	]
+	],
+	"settings": {
+		"workbench.colorCustomizations": {
+			"activityBar.background": "#043240",
+			"titleBar.activeBackground": "#064659",
+			"titleBar.activeForeground": "#F3FCFE"
+		}
+	}
 }
