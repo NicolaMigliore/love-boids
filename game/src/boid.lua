@@ -22,9 +22,9 @@ function Boid:update(boids, dt)
 	local flock = FLOCKS[self.flockID]
 
 	if flock then
-		self.curAlignment = self:alignment(flock.boids) * 1.0
-		self.curCohesion = self:cohesion(flock.boids) * 4.5
-		self.curSeparation = self:separation(flock.boids) * 3.5
+		self.curAlignment = self:alignment(flock.boids) * ALIGNMENT_FORCE
+		self.curCohesion = self:cohesion(flock.boids) * COHESION_FORCE
+		self.curSeparation = self:separation(flock.boids) * SEPARATION_FORCE
 
 		-- Combine all forces
 		local steering = self.curAlignment + self.curCohesion + self.curSeparation
