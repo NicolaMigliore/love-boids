@@ -1,16 +1,14 @@
 local Boid = Class()
 local perceptionRad = 50
 
-function Boid:init(id, x, y, angle, flockID)
+function Boid:init(id, x, y, flockID)
 	self.id = id or uuid()
 	self.position = Vector(x, y)
-	self.angle = angle or (math.random() * 2 * math.pi) -- Random angle in radians
-	self.speed = 100
-	self.maxForce = 0.05                  -- Limit steering force
-	self.maxSpeed = 200                   -- Limit max speed
-	self.turnSpeed = 0.01                 -- Smooth turning
-	self.size = 10 --math.random(5, 20)
-	self.flockID = flockID                -- Flock ID for the boid
+	self.velocity = Vector(math.random() * 2 - 1, math.random() * 2 - 1):normalized() * 100 -- Initial random velocity
+	self.size = math.random(5, 20)                                               -- Size of the boid
+	self.maxForce = 100 / math.modf(self.size / 5)                               -- Limit steering force
+	self.maxSpeed = 100 / math.modf(self.size / 5)                               -- Limit max speed
+	self.flockID = flockID                                                       -- Flock ID for the boid
 	self.lastMergeTime = 0
 end
 
@@ -21,73 +19,92 @@ function Boid:update(boids, dt)
 
 	local flock = FLOCKS[self.flockID]
 
+	-- Calculate border avoidance force
+	local borderAvoidanceForce = self:avoidBorder() *
+	BORDER_FORCE                                                -- Give this a strong influence to prioritize border avoidance
+
+	local steering = borderAvoidanceForce
+
 	if flock then
+		-- Calculate forces
 		self.curAlignment = self:alignment(flock.boids) * ALIGNMENT_FORCE
 		self.curCohesion = self:cohesion(flock.boids) * COHESION_FORCE
 		self.curSeparation = self:separation(flock.boids) * SEPARATION_FORCE
 
 		-- Combine all forces
-		local steering = self.curAlignment + self.curCohesion + self.curSeparation
+		steering = steering + self.curAlignment + self.curCohesion + self.curSeparation
+
+		-- Limit the steering force to maxForce
 		steering = steering:trimmed(self.maxForce)
 
-		-- Update angle (steering forces modify direction)
-		local desiredAngle = math.atan2(steering.y, steering.x)
-		self.angle = self.angle + (desiredAngle - self.angle) * self.turnSpeed
-
+		-- Update velocity based on steering
+		self.velocity = self.velocity + steering * dt        -- Apply steering over time
+		self.velocity = self.velocity:trimmed(self.maxSpeed) -- Limit velocity to max speed
 	end
-	-- Calculate velocity based on angle and speed
-	self.velocity = Vector(math.cos(self.angle), math.sin(self.angle)) * self.maxSpeed / 10
-	-- self.velocity = self.velocity:normalized() * self.maxSpeed / 10
-	self.velocity = self.velocity:trimmed(self.maxSpeed)
-	self.position = self.position + self.velocity * dt
 
-	-- Handle screen wrapping
-	self:wrapAroundScreen()
+	-- Update position based on velocity
+	self.position = self.position + self.velocity * dt
 end
 
 function Boid:draw()
-	local sizeModifier = math.modf(self.size / 10)
-	
+	local sizeModifier = math.modf(self.size / 5)
+
 	local flock = FLOCKS[self.flockID]
 	if flock and ShowFlock then
 		love.graphics.setColor(flock.color)
 	end
 
 	love.graphics.circle("fill", self.position.x, self.position.y, math.floor(5 * sizeModifier))
-	local lineEnd = self.position + Vector(math.cos(self.angle), math.sin(self.angle)) * math.floor(10 * sizeModifier)
+	local lineEnd = self.position + self.velocity:normalized() * math.floor(10 * sizeModifier)
 	love.graphics.line(self.position.x, self.position.y, lineEnd.x, lineEnd.y)
+	love.graphics.print(math.floor(self.maxForce), self.position.x - 15 - sizeModifier * 5,
+		self.position.y - 10 - sizeModifier * 5)
 
 	love.graphics.setColor(1, 1, 1)
 	if ShowPerception then
-		love.graphics.print(string.sub(self.flockID, 1,4), self.position.x-perceptionRad, self.position.y-perceptionRad-10)
+		love.graphics.print(string.sub(self.flockID, 1, 4), self.position.x - perceptionRad,
+			self.position.y - perceptionRad - 10)
 		love.graphics.circle("line", self.position.x, self.position.y, perceptionRad)
 	end
 end
 
-function Boid:wrapAroundScreen()
-	local width, height = love.graphics.getWidth(), love.graphics.getHeight()
-	if self.position.x > width then self.position.x = 0 end
-	if self.position.x < 0 then self.position.x = width end
-	if self.position.y > height then self.position.y = 0 end
-	if self.position.y < 0 then self.position.y = height end
+
+function Boid:avoidBorder()
+	local width, height = WINDOW_WIDTH, WINDOW_HEIGHT
+	local steer = Vector(0, 0)
+	local padding = worldPadding
+
+	-- return targetAngle
+	if self.position.x < padding then
+		steer = steer + Vector(1, 0) * (padding - self.position.x)
+	elseif self.position.x > width - padding then
+		steer = steer + Vector(-1, 0) * (self.position.x - (width - padding))
+	end
+
+	if self.position.y < padding then
+		steer = steer + Vector(0, 1) * (padding - self.position.y)
+	elseif self.position.y > height - padding then
+		steer = steer + Vector(0, -1) * (self.position.y - (height - padding))
+	end
+
+	return steer:trimmed(self.maxForce)
 end
 
 -- Function to find the flock the boid belongs to
 function Boid:mergeFlocks(boids)
-	local currentTime = love.timer.getTime()  -- Use LOVE2D's timer
-    if currentTime - self.lastMergeTime < 1 then return end  -- Merge only once every 1 second
+	local currentTime = love.timer.getTime()             -- Use LOVE2D's timer
+	if currentTime - self.lastMergeTime < 1 then return end -- Merge only once every 1 second
 	for _, other in ipairs(boids) do
 		if other ~= self and self.flockID ~= other.flockID and self:canFlock(other) then
 			local flock = FLOCKS[self.flockID]
 			local otherFlock = FLOCKS[other.flockID]
 			if flock and otherFlock then
-				-- flock:mergeFlock(otherFlock)
 				for _, boid in ipairs(otherFlock.boids) do
 					boid.flockID = self.flockID
 					table.insert(flock.boids, boid)
 				end
 				FLOCKS[otherFlock.id] = nil
-				self.lastMergeTime = currentTime  -- Update last merge time
+				self.lastMergeTime = currentTime -- Update last merge time
 			end
 		end
 	end
@@ -99,14 +116,14 @@ function Boid:alignment(boids)
 
 	for _, other in ipairs(boids) do
 		if other ~= self and other.flockID == self.flockID then
-			avgVelocity = avgVelocity + Vector(math.cos(other.angle), math.sin(other.angle))
+			avgVelocity = avgVelocity + other.velocity
 			total = total + 1
 		end
 	end
 
 	if total > 0 then
 		avgVelocity = avgVelocity / total
-		return avgVelocity:normalized()
+		return (avgVelocity - self.velocity):normalized()
 	else
 		return Vector(0, 0)
 	end

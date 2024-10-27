@@ -12,16 +12,20 @@ local boids = {}
 
 function love.load()
 	DEBUG = {}
+	WINDOW_WIDTH = love.graphics.getWidth()
+	WINDOW_HEIGHT = love.graphics.getHeight()
+	worldPadding = 50
 
 	FLOCKS = {}
 	ShowPerception = false
-	ShowFlock = false
+	ShowFlock = true
 	ShowPrints = false
 
 	-- Forces
-	ALIGNMENT_FORCE = 0.1
-	COHESION_FORCE = 0.7
-	SEPARATION_FORCE = 3.5
+	ALIGNMENT_FORCE = 185
+	COHESION_FORCE = 190
+	SEPARATION_FORCE = 370
+	BORDER_FORCE = 100000
 
 
 
@@ -34,7 +38,7 @@ function love.load()
 		local x = math.random(0, love.graphics.getWidth())
 		local y = math.random(0, love.graphics.getHeight())
 		local flockID = uuid()
-		local boid = Boid(nil, x, y, nil, flockID)
+		local boid = Boid(nil, x, y, flockID)
 		-- local boid = Boid(tostring(i), positions[i][1],positions[i][2],angles[i],flockID)
 		table.insert(boids, boid)
 
@@ -59,6 +63,9 @@ function love.update(dt)
 end
 
 function love.draw()
+	-- draw world padding
+	love.graphics.rectangle("line", worldPadding, worldPadding, WINDOW_WIDTH - worldPadding * 2, WINDOW_HEIGHT - worldPadding * 2)
+
 	for _, boid in ipairs(boids) do
 		love.graphics.setColor(1, 1, 1)
 		-- if _ == 1 and boid.curAlignment then
@@ -80,13 +87,7 @@ function love.draw()
 	end
 	
 	-- Sliders
-	love.graphics.setColor(.4,.3,.2)
-	love.graphics.rectangle("fill", 30, 530, 400, 70)
-	love.graphics.setColor(1,1,1)
-	for _, slider in pairs(UI.sliders) do
-		slider:draw()
-		love.graphics.print(_, slider.x -50, slider.y + 10)
-	end
+	UI:draw()
 end
 
 function love.keyreleased(key)
