@@ -18,6 +18,7 @@ function love.load()
 
 	FLOCKS = {}
 	ShowPerception = false
+	ShowPersonalSpace = true
 	ShowFlock = true
 	ShowPrints = false
 
@@ -57,9 +58,9 @@ function love.update(dt)
 		slider:update()
 	end
 
-	DEBUG[1] = "alignment:"..ALIGNMENT_FORCE
-	DEBUG[2] = "cohesion:"..COHESION_FORCE
-	DEBUG[3] = "separation:"..SEPARATION_FORCE
+	DEBUG[1] = "alignment:"..tostring(boids[1].curAlignment)
+	DEBUG[2] = "cohesion:"..tostring(boids[1].curCohesion)
+	DEBUG[3] = "separation:"..tostring(boids[1].curSeparation)
 end
 
 function love.draw()
@@ -74,6 +75,7 @@ function love.draw()
 		-- 	love.graphics.print("curSeparation:" .. boid.curSeparation:__tostring(), 10, 50)
 		-- 	love.graphics.setColor(.5, 1, .4)
 		-- end
+		if _ == 1 then love.graphics.setColor(.5,.5,.9) end
 		boid:draw()
 	end
 
@@ -97,6 +99,8 @@ function love.keyreleased(key)
 		ShowFlock = not ShowFlock
 	elseif key == "p" then
 		ShowPrints = not ShowPrints
+	elseif key == "k" then
+		ShowPersonalSpace = not ShowPersonalSpace
 	end
 end
 

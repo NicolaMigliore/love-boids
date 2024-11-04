@@ -12,7 +12,7 @@ function UI:init()
 	local updateSeparation = function(newVal)
 		SEPARATION_FORCE = newVal
 	end
-	local SeparationSlider = newSlider(340, 550, 100, SEPARATION_FORCE, 0.1, 500, updateSeparation)
+	local SeparationSlider = newSlider(340, 550, 100, SEPARATION_FORCE, 0.1, 100000, updateSeparation)
 	local updateBorder = function(newVal)
 		BORDER_FORCE = newVal
 	end

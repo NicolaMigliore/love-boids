@@ -5,10 +5,11 @@ function Boid:init(id, x, y, flockID)
 	self.id = id or uuid()
 	self.position = Vector(x, y)
 	self.velocity = Vector(math.random() * 2 - 1, math.random() * 2 - 1):normalized() * 100 -- Initial random velocity
-	self.size = math.random(5, 20)                                               -- Size of the boid
-	self.maxForce = 100 / math.modf(self.size / 5)                               -- Limit steering force
-	self.maxSpeed = 100 / math.modf(self.size / 5)                               -- Limit max speed
-	self.flockID = flockID                                                       -- Flock ID for the boid
+	self.size = math.random(5, 20)                                                       -- Size of the boid
+	self.maxForce = 100 / math.modf(self.size / 5)                                       -- Limit steering force
+	self.maxSpeed = 100 / math.modf(self.size / 5)                                       -- Limit max speed
+	self.personalSpace = math.modf(self.size) * 8											-- Boids personal space
+	self.flockID = flockID                                                               -- Flock ID for the boid
 	self.lastMergeTime = 0
 end
 
@@ -21,7 +22,7 @@ function Boid:update(boids, dt)
 
 	-- Calculate border avoidance force
 	local borderAvoidanceForce = self:avoidBorder() *
-	BORDER_FORCE                                                -- Give this a strong influence to prioritize border avoidance
+		BORDER_FORCE -- Give this a strong influence to prioritize border avoidance
 
 	local steering = borderAvoidanceForce
 
@@ -38,7 +39,7 @@ function Boid:update(boids, dt)
 		steering = steering:trimmed(self.maxForce)
 
 		-- Update velocity based on steering
-		self.velocity = self.velocity + steering * dt        -- Apply steering over time
+		self.velocity = self.velocity + steering * dt  -- Apply steering over time
 		self.velocity = self.velocity:trimmed(self.maxSpeed) -- Limit velocity to max speed
 	end
 
@@ -61,13 +62,18 @@ function Boid:draw()
 		self.position.y - 10 - sizeModifier * 5)
 
 	love.graphics.setColor(1, 1, 1)
+	
+	-- Debug drawing
 	if ShowPerception then
 		love.graphics.print(string.sub(self.flockID, 1, 4), self.position.x - perceptionRad,
 			self.position.y - perceptionRad - 10)
 		love.graphics.circle("line", self.position.x, self.position.y, perceptionRad)
 	end
+	if ShowPersonalSpace then
+		love.graphics.setColor(1, .5, .5)
+		love.graphics.circle("line", self.position.x, self.position.y, self.personalSpace)
+	end
 end
-
 
 function Boid:avoidBorder()
 	local width, height = WINDOW_WIDTH, WINDOW_HEIGHT
@@ -149,13 +155,12 @@ function Boid:cohesion(boids)
 end
 
 function Boid:separation(boids)
-	local perceptionRadius = 30
 	local total = 0
 	local steer = Vector(0, 0)
 
 	for _, other in ipairs(boids) do
 		local distance = self.position:dist(other.position)
-		if other ~= self and other.flockID == self.flockID and distance ~= 0 and distance < perceptionRadius then
+		if other ~= self and other.flockID == self.flockID and distance ~= 0 and distance < self.personalSpace then
 			local diff = (self.position - other.position):normalized() / distance
 			steer = steer + diff
 			total = total + 1
