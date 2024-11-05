@@ -1,16 +1,20 @@
 local Boid = Class()
 local perceptionRad = 50
 
-function Boid:init(id, x, y, flockID)
+function Boid:init(id, x, y, flockID, size)
 	self.id = id or uuid()
 	self.position = Vector(x, y)
 	self.velocity = Vector(math.random() * 2 - 1, math.random() * 2 - 1):normalized() * 100 -- Initial random velocity
-	self.size = math.random(5, 20)                                                       -- Size of the boid
-	self.maxForce = 100 / math.modf(self.size / 5)                                       -- Limit steering force
-	self.maxSpeed = 100 / math.modf(self.size / 5)                                       -- Limit max speed
-	self.personalSpace = math.modf(self.size) * 8											-- Boids personal space
+	self.size = size or math.random(5, 20)                                                       -- Size of the boid
+	self.maxForce = 1.6 * self.size + 92                                      -- Limit steering force
+	self.maxSpeed = 1.6 * self.size + 92                                      -- Limit max speed
+	self.personalSpace = math.modf(self.size) * 8										 -- Boids personal space
 	self.flockID = flockID                                                               -- Flock ID for the boid
 	self.lastMergeTime = 0
+	self.predatorDistance = (-6 * self.size) + 150
+	self.preyDistance = (3 * self.size) + 65
+	self.predator = nil
+	self.prey = nil
 end
 
 function Boid:update(boids, dt)
@@ -21,10 +25,13 @@ function Boid:update(boids, dt)
 	local flock = FLOCKS[self.flockID]
 
 	-- Calculate border avoidance force
-	local borderAvoidanceForce = self:avoidBorder() *
-		BORDER_FORCE -- Give this a strong influence to prioritize border avoidance
+	local borderAvoidanceForce = self:avoidBorder() * BORDER_FORCE
+	self.predator = nil
+	local predatorAvoidanceForce = self:avoidPredator(boids) * PREDATOR_FORCE
+	self.prey = nil
+	local preyHuntForce = self:huntPrey(boids) * PREY_FORCE
 
-	local steering = borderAvoidanceForce
+	local steering = borderAvoidanceForce + predatorAvoidanceForce + preyHuntForce
 
 	if flock then
 		-- Calculate forces
@@ -58,7 +65,7 @@ function Boid:draw()
 	love.graphics.circle("fill", self.position.x, self.position.y, math.floor(5 * sizeModifier))
 	local lineEnd = self.position + self.velocity:normalized() * math.floor(10 * sizeModifier)
 	love.graphics.line(self.position.x, self.position.y, lineEnd.x, lineEnd.y)
-	love.graphics.print(math.floor(self.maxForce), self.position.x - 15 - sizeModifier * 5,
+	love.graphics.print(sizeModifier, self.position.x - 15 - sizeModifier * 5,
 		self.position.y - 10 - sizeModifier * 5)
 
 	love.graphics.setColor(1, 1, 1)
@@ -72,6 +79,14 @@ function Boid:draw()
 	if ShowPersonalSpace then
 		love.graphics.setColor(1, .5, .5)
 		love.graphics.circle("line", self.position.x, self.position.y, self.personalSpace)
+	end
+	if self.predator and ShowLines then
+		love.graphics.setColor(1,0.6,0.7)
+		love.graphics.line(self.position.x, self.position.y, self.predator.position.x, self.predator.position.y)
+	end
+	if self.prey and ShowLines then
+		love.graphics.setColor(0.6,1,0.7)
+		love.graphics.line(self.position.x, self.position.y, self.prey.position.x, self.prey.position.y)
 	end
 end
 
@@ -94,6 +109,62 @@ function Boid:avoidBorder()
 	end
 
 	return steer:trimmed(self.maxForce)
+end
+
+function Boid:avoidPredator(boids)
+	local steer = Vector(0, 0)
+	for _, predator in ipairs(boids) do
+		local predatorSizeRange = math.modf(predator.size / 5)
+		local selfSizeRange = math.modf(self.size / 5)
+		local distance = self.position:dist(predator.position)
+		-- check if predator in range
+		if predatorSizeRange - selfSizeRange > 1 and distance < self.predatorDistance then
+			self.predator = predator
+			-- return targetAngle
+			if self.position.x < predator.position.x then
+				steer = steer + Vector(-1, 0) * (predator.position.x - self.position.x)
+			elseif self.position.x > predator.position.x then
+				steer = steer + Vector(1, 0) * (self.position.x - predator.position.x)
+			end
+
+			if self.position.y < predator.position.y then
+				steer = steer + Vector(0, -1) * (predator.position.y - self.position.y)
+			elseif self.position.y > predator.position.y then
+				steer = steer + Vector(0, 1) * (self.position.y - predator.position.y)
+			end
+
+			return steer:trimmed(self.maxForce)
+		end
+	end
+	return steer
+end
+
+function Boid:huntPrey(boids)
+	local steer = Vector(0, 0)
+	for _, prey in ipairs(boids) do
+		local preySizeRange = math.modf(prey.size / 5)
+		local selfSizeRange = math.modf(self.size / 5)
+		local distance = self.position:dist(prey.position)
+		-- check if prey in range
+		if selfSizeRange - preySizeRange > 1 and distance < self.preyDistance then
+			self.prey = prey
+			-- return targetAngle
+			if self.position.x < prey.position.x then
+				steer = steer + Vector(1, 0) * (prey.position.x - self.position.x)
+			elseif self.position.x > prey.position.x then
+				steer = steer + Vector(-1, 0) * (self.position.x - prey.position.x)
+			end
+
+			if self.position.y < prey.position.y then
+				steer = steer + Vector(0, 1) * (prey.position.y - self.position.y)
+			elseif self.position.y > prey.position.y then
+				steer = steer + Vector(0, -1) * (self.position.y - prey.position.y)
+			end
+
+			return steer:trimmed(self.maxForce)
+		end
+	end
+	return steer
 end
 
 -- Function to find the flock the boid belongs to

@@ -18,28 +18,44 @@ function love.load()
 
 	FLOCKS = {}
 	ShowPerception = false
-	ShowPersonalSpace = true
+	ShowPersonalSpace = false
 	ShowFlock = true
 	ShowPrints = false
+	ShowLines = false
 
 	-- Forces
 	ALIGNMENT_FORCE = 185
 	COHESION_FORCE = 190
 	SEPARATION_FORCE = 370
 	BORDER_FORCE = 100000
+	PREDATOR_FORCE = 5000
+	PREY_FORCE = 500000
 
 
 
 	UI = ui()
-	local positions = { { 220, 200 }, { 170, 200 } }
-	local angles = { math.pi, 0 }
 
-	for i = 1, 20 do
+	-- spawn preys
+	for i = 1, 100 do
 		-- create boid
 		local x = math.random(0, love.graphics.getWidth())
 		local y = math.random(0, love.graphics.getHeight())
 		local flockID = uuid()
-		local boid = Boid(nil, x, y, flockID)
+		local boid = Boid(nil, x, y, flockID, 5)
+		-- local boid = Boid(tostring(i), positions[i][1],positions[i][2],angles[i],flockID)
+		table.insert(boids, boid)
+
+		-- create flock
+		local flock = Flock(flockID, { boid })
+		FLOCKS[flock.id] = flock
+	end
+	-- spawn predators
+	for i = 1, 2 do
+		-- create boid
+		local x = math.random(0, love.graphics.getWidth())
+		local y = math.random(0, love.graphics.getHeight())
+		local flockID = uuid()
+		local boid = Boid(nil, x, y, flockID, 20)
 		-- local boid = Boid(tostring(i), positions[i][1],positions[i][2],angles[i],flockID)
 		table.insert(boids, boid)
 
@@ -69,12 +85,6 @@ function love.draw()
 
 	for _, boid in ipairs(boids) do
 		love.graphics.setColor(1, 1, 1)
-		-- if _ == 1 and boid.curAlignment then
-		-- 	love.graphics.print("curAlignment:" .. boid.curAlignment:__tostring(), 10, 10)
-		-- 	love.graphics.print("curCohesion:" .. boid.curCohesion:__tostring(), 10, 30)
-		-- 	love.graphics.print("curSeparation:" .. boid.curSeparation:__tostring(), 10, 50)
-		-- 	love.graphics.setColor(.5, 1, .4)
-		-- end
 		if _ == 1 then love.graphics.setColor(.5,.5,.9) end
 		boid:draw()
 	end
@@ -101,6 +111,10 @@ function love.keyreleased(key)
 		ShowPrints = not ShowPrints
 	elseif key == "k" then
 		ShowPersonalSpace = not ShowPersonalSpace
+	elseif key == "l" then
+		ShowLines = not ShowLines
+	elseif key == "escape" then
+		love.event.quit(0)
 	end
 end
 

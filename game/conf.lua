@@ -22,13 +22,13 @@ function love.conf(t)
 
 	t.window.title          = "Love Boids"
 	t.window.icon           = nil
-	t.window.width          = 800
-	t.window.height         = 600
+	t.window.width          = 1920--800
+	t.window.height         = 720--600
 	t.window.borderless     = false
 	t.window.resizable      = false
 	t.window.minwidth       = 1
 	t.window.minheight      = 1
-	t.window.fullscreen     = false
+	t.window.fullscreen     = true
 	t.window.fullscreentype = "desktop"
 	t.window.vsync          = 1
 	t.window.msaa           = 0
